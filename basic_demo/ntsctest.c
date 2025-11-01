@@ -18,17 +18,25 @@
 #ifdef CH32V003
 // Leave in flash on 003, it's faster
 #define LOCATION_DECORATOR
+#define TIM1_SWEVGR_UG      TIM_UG
+#define TIM1_CCER_CC1E      TIM_CC1E
+#define TIM1_CHCTLR1_OC1M_2 TIM_OC1M_2
+#define TIM1_CHCTLR1_OC1M_1 TIM_OC1M_1
+#define TIM1_BDTR_MOE       TIM_MOE
+#define TIM1_DMAINTENR_UDE  TIM_UDE
+#define TIM1_DMAINTENR_COMDE TIM_COMDE
+#define TIM1_CTLR1_CEN       TIM_CEN
 #else
 // Put in RAM on the 006, it's faster
 #define LOCATION_DECORATOR __attribute__((section(".srodata")))
 #endif
 
-#define MBSAMPS 1024
+#define MBSAMPS 256
 volatile uint8_t memory_buffer[MBSAMPS];
 
+int frame;
+
 #define RES_W 40
-#define RES_H 30
-uint8_t framebuffer[RES_H][RES_W];
 
 
 	// steps minus 1, at 1.2MHz, value
@@ -43,8 +51,7 @@ uint8_t framebuffer[RES_H][RES_W];
 const uint8_t synctable1half[] = {
 	4, 0,  // q
 	26, 1,   // r
-	0, 0,	
-	0, 0
+	0, 0,
 };
 
 const uint8_t synctable12[] = {
@@ -52,8 +59,7 @@ const uint8_t synctable12[] = {
 	26, 1,   // r
 	4, 0,  // q
 	26, 1,   // r
-	0, 0,	
-	0, 0	
+	0, 0,
 };
 
 const uint8_t synctable3[] = {
@@ -61,8 +67,7 @@ const uint8_t synctable3[] = {
 	4, 1,  // r
 	4, 0,  // p
 	26, 1, // p'
-	0, 0,	
-	0, 0
+	0, 0,
 };
 
 const uint8_t synctable45[] = {
@@ -70,8 +75,7 @@ const uint8_t synctable45[] = {
 	4, 1,  // p
 	26, 0, // p'
 	4, 1,  // p
-	0, 0,	
-	0, 0	
+	0, 0,
 };
 
 const uint8_t synctableblank[] = {
@@ -79,8 +83,7 @@ const uint8_t synctableblank[] = {
 	19, 1, // r'
 	18, 1, // r'
 	19, 1, // r'
-	0, 0,	
-	0, 0,	
+	0, 0,
 };
 
 const uint8_t synctableline[] = {
@@ -89,7 +92,6 @@ const uint8_t synctableline[] = {
 	RES_W, 2, // frame data
 	47-RES_W, 1,
 	0, 0,
-	0, 0,	
 };
 
 const uint8_t synctable3B[] = {
@@ -97,8 +99,7 @@ const uint8_t synctable3B[] = {
 	26, 1,
 	26, 0,
 	4, 1,
-	0, 0,	
-	0, 0,	
+	0, 0,
 };
 
 
@@ -107,8 +108,7 @@ const uint8_t synctable6B[] = {
 	5, 1,
 	3, 0,
 	27, 1,
-	0, 0,	
-	0, 0,	
+	0, 0,
 };
 
 
@@ -126,8 +126,8 @@ const uint32_t synctable_map[] = {
 	(uintptr_t)synctable45, 2,
 	(uintptr_t)synctable6B, 1,
 	(uintptr_t)synctable12, 2, // 314, 315
-	(uintptr_t)synctableblank, 18,
-	(uintptr_t)synctableline, 235,
+	(uintptr_t)synctableblank, 17,
+	(uintptr_t)synctableline, 234,
 //	(uintptr_t)synctable1half, 1,
 
 	0, 0
@@ -141,16 +141,13 @@ static void DataFill( uint32_t * o, int words )
 	static const uint32_t * stable = &synctable_map[0];
 	static int stablecnt = 1;
 	static const uint8_t * ctable_s = &synctable12[0];
-	static uint8_t * framebuffer_ptr_s = &framebuffer[0][0];
 	static int ctablecnt_s = 1;
 	static int ctablevalue_s = 0;
 
-	uint8_t * framebuffer_ptr;
 	const uint8_t * ctable = ctable_s;
 	int ctablecnt;
 	int ctablevalue;
 
-	framebuffer_ptr = framebuffer_ptr_s;
 	ctablecnt = ctablecnt_s;
 	ctablevalue = ctablevalue_s;
 
@@ -171,13 +168,13 @@ outer_loop:
 				{
 inner_loop:
 					stable+=2;
-					ctable = (uint8_t*)stable[0] - 1;
+					ctable = (uint8_t*)stable[0];
 					stablecnt = stable[1];
 
 					if( ctable == 0 )
 					{
-						framebuffer_ptr = framebuffer_ptr_s = &framebuffer[0][0]; 
 						stable = synctable_map-2;
+						frame++;
 						goto inner_loop;
 					}
 				}
@@ -201,12 +198,12 @@ inner_loop:
 //				*o = 0x06060606;
 //			else
 //				*o = (ctablecnt&1)?0x06020202:0x06020202;
+			int on = ((uint8_t)(( (frame-ctablecnt) & (frame-(stablecnt>>3)))))>0;
+			*o = (on)?0x06060606:0x02020202;
 
-			*o = ((framebuffer_ptr[ctablecnt])) ? 0x06060606 : 0x02020202;
 		}
 	} while( (++o) != oend );
 
-	framebuffer_ptr_s = framebuffer_ptr;
 	ctable_s = ctable;
 	ctablecnt_s = ctablecnt;
 	ctablevalue_s = ctablevalue;
@@ -270,7 +267,7 @@ int main()
 	
 	// Auto Reload - sets period
 	TIM1->ATRLR = 11; // 4.8MHz (0..9)
-	
+
 	// Reload immediately
 	TIM1->SWEVGR |= TIM1_SWEVGR_UG;
 	
@@ -325,14 +322,6 @@ int main()
 
 //	TIM1->DMAINTENR = TIM_TDE | TIM_CC1DE;// | TIM_UDE; (For channel 2)
 	TIM1->DMAINTENR = TIM1_DMAINTENR_UDE | TIM1_DMAINTENR_COMDE; //(For channel 5)
-
-	int i;
-	int x, y;
-	for( y = 0; y < RES_H; y++ )
-	for( x = 0; x < RES_W; x++ )
-	{
-		framebuffer = rand()%2;
-	}
 
 	while(1)
 	{
