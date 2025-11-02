@@ -357,6 +357,33 @@ int main()
 	uint32_t step = SysTick->CNT;
 	int frame = 0;
 
+
+
+
+	// ADC
+
+	// ADCCLK = 24 MHz => RCC_ADCPRE = 0: divide by 2
+	RCC->CFGR0 &= ~(0x1F<<11);
+	
+	// Enable GPIOD and ADC
+	RCC->APB2PCENR |= RCC_APB2Periph_GPIOD | RCC_APB2Periph_ADC1;
+	
+	// Reset the ADC to init all regs
+	RCC->APB2PRSTR |= RCC_APB2Periph_ADC1;
+	RCC->APB2PRSTR &= ~RCC_APB2Periph_ADC1;
+	
+	// Set up single conversion on chl 7
+	ADC1->RSQR1 = 0;
+	ADC1->RSQR2 = 0;
+	ADC1->RSQR3 = 0;	// 0-9 for 8 ext inputs and two internals --> ADC0
+	
+	ADC1->SAMPTR2 = 7<<(3*7);	// 0:7 => 3/9/15/30/43/57/73/241 cycles
+		
+	// turn on ADC and set rule group to sw trig
+	ADC1->CTLR2 |= ADC_ADON | ADC_EXTSEL;
+
+	ADC1->CTLR2 |= ADC_SWSTART;
+
 	while(1)
 	{
 
@@ -389,10 +416,16 @@ int main()
 				framebuffer[y][ux+14] = jollywrencher[y][x+14];
 			}
 			frame++;
-			if( frame == 56 ) frame = 72;
-			if( frame == 184 ) frame = 200;
+			if( frame == 54 ) frame = 74;
+			if( frame == 182 ) frame = 202;
 			if( frame == 256 ) frame = 0;
-			step += 50000;
+
+			ADC1->CTLR2 |= ADC_SWSTART;
+			//	printf( "%d\n", ADC1->RDATAR );
+
+
+			step += ADC1->RDATAR * 128 + 10000;//50000;
+			//printf( "%d\n", ADC1->RDATAR );
 		}
 
 		funDigitalWrite( PD3, FUN_HIGH );
