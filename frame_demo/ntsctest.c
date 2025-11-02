@@ -1,4 +1,7 @@
 // Stream a continuous stream of values to Timer 1 Output 1
+// ADC on Pin PD5
+// NTSC on PD2
+// Debug timing output for monitor on PD3
 
 #include "ch32fun.h"
 #include <stdio.h>
@@ -375,7 +378,7 @@ int main()
 	// Set up single conversion on chl 7
 	ADC1->RSQR1 = 0;
 	ADC1->RSQR2 = 0;
-	ADC1->RSQR3 = 0;	// 0-9 for 8 ext inputs and two internals --> ADC0
+	ADC1->RSQR3 = 5;	// 0-9 for 8 ext inputs and two internals --> ADC0
 	
 	ADC1->SAMPTR2 = 7<<(3*7);	// 0:7 => 3/9/15/30/43/57/73/241 cycles
 		
