@@ -9,5 +9,7 @@ In general:
 
 Default is to compile for 003, edit your makefile if you want 006.
 
+If connecting to a TV (even a small one) please make sure all ground are connected **before** applying any power.
+
 ![Image](https://github.com/user-attachments/assets/616e7920-86bb-4726-be40-c3d0da39ef86)
 
