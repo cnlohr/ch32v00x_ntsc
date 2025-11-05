@@ -3,7 +3,7 @@
 Based on the NTSC guide [here](https://cnlohr.github.io/channel3/ntsc_pal_frame_documentation/pal_ntsc_from_kolumbus_fi_pami1.html)
 
 In general:
- * Output NTSC on PD2
+ * Output NTSC on PD2 (You may filter this with a 100 ohm resistor and a 2.2nF capacitor, not required usually though)
  * Use PD1 as SWIO
  * PD3 has debug timing
 
